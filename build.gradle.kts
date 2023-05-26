@@ -13,37 +13,31 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+@file:Suppress("UnstableApiUsage")
+
 plugins {
-    id("com.github.ben-manes.versions") version("0.42.0")
+    id("com.github.ben-manes.versions") version("0.46.0")
 }
 
 buildscript {
-    extra.apply {
-        set("nav_version", "2.5.0-rc01")
-        set("room_version", "2.5.0-alpha01")
-        set("work_version", "2.8.0-alpha02")
-        set("glide_version", "4.13.2")
-        set("lifecycle_version", "2.5.0-rc01")
-        set("exoplayer_version", "2.17.1")
-        set("okhttp_version", "5.0.0-alpha.7")
-        set("retrofit_version", "2.9.0")
-        set("xmlutil_version", "0.84.1")
-        set("kodein_version", "7.11.0")
-        set("coroutines_version", "1.6.1")
-        set("serialization_version", "1.3.2")
-        set("ktor_version", "1.6.7")
-    }
+    apply(from = "repositories.gradle.kts")
     repositories {
+        gradlePluginPortal()
         google()
+        mavenCentral()
+        maven(url = "https://jitpack.io")
+        maven(url = "https://plugins.gradle.org/m2/")
     }
     dependencies {
-        val kotlinVersion = "1.6.21"
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        val navigationVersion = "2.5.3"
+        val kotlinVersion = rootProject.extra["kotlin_version"].toString()
+        classpath(rootProject.extra["android_gradle_plugin"].toString())
+        classpath(kotlin("gradle-plugin", kotlinVersion))
         classpath(kotlin("serialization", kotlinVersion))
-        classpath("com.android.tools.build:gradle:7.2.0")
-        classpath("com.google.android.gms:oss-licenses-plugin:0.10.5")
-        classpath("com.google.gms:google-services:4.3.10")
-        classpath("com.google.firebase:firebase-crashlytics-gradle:2.8.1")
+        classpath("androidx.navigation:navigation-safe-args-gradle-plugin:$navigationVersion")
+        classpath("com.google.android.gms:oss-licenses-plugin:0.10.6")
+        classpath("com.google.gms:google-services:4.3.15")
+        classpath("com.google.firebase:firebase-crashlytics-gradle:2.9.4")
     }
 }
 
@@ -64,4 +58,19 @@ allprojects {
 
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)
+}
+
+subprojects {
+    afterEvaluate {
+        project.extensions.findByType<org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension>()?.let { ext ->
+            ext.sourceSets.removeAll { sourceSet ->
+                setOf(
+                    "androidAndroidTestRelease",
+                    "androidTestFixtures",
+                    "androidTestFixturesDebug",
+                    "androidTestFixturesRelease",
+                ).contains(sourceSet.name)
+            }
+        }
+    }
 }

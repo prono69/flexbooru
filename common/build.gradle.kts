@@ -13,7 +13,7 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import org.jetbrains.kotlin.config.KotlinCompilerVersion
+@file:Suppress("UnstableApiUsage")
 
 plugins {
     id("com.android.library")
@@ -21,22 +21,12 @@ plugins {
     kotlin("plugin.serialization")
 }
 
-val ext = rootProject.extra
-val ktorVersion = ext.get("ktor_version") as String
-val kodeinVersion = ext.get("kodein_version") as String
-val coroutinesVersion = ext.get("coroutines_version") as String
-val serializationVersion = ext.get("serialization_version") as String
-
 android {
-    compileSdk = 32
-    buildToolsVersion = "32.0.0"
-    defaultConfig {
-        minSdk = 21
-        targetSdk = 32
-    }
+    compileSdk = 33
+    defaultConfig.minSdk = 21
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     namespace = "onlymash.flexbooru.common"
 }
@@ -44,19 +34,19 @@ android {
 kotlin {
     jvm {
         compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
+            kotlinOptions.jvmTarget = "17"
         }
     }
     android {
         compilations.all {
-            kotlinOptions.jvmTarget = "1.8"
+            kotlinOptions.jvmTarget = "17"
         }
     }
     targets.all {
         compilations.all {
             kotlinOptions {
                 freeCompilerArgs = freeCompilerArgs + listOf(
-                    "-Xopt-in=kotlinx.coroutines.DelicateCoroutinesApi",
+                    "-opt-in=kotlinx.coroutines.DelicateCoroutinesApi",
                 )
             }
         }
@@ -64,25 +54,22 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(kotlin("stdlib-common"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
-                implementation("org.kodein.di:kodein-di:$kodeinVersion")
-                implementation("io.ktor:ktor-client-core:$ktorVersion")
-                implementation("io.ktor:ktor-client-json:$ktorVersion")
-                implementation("io.ktor:ktor-client-serialization:$ktorVersion")
+                implementation(Libs.kotlinxCoroutinesCore)
+                implementation(Libs.kotlinxSerializationJson)
+                implementation(Libs.kodein)
+                implementation(Libs.ktorClientContentNegotiation)
+                implementation(Libs.ktorSerializationKotlinxJson)
             }
         }
         val jvmMain by getting {
             dependencies {
-                implementation(kotlin("stdlib-jdk8", KotlinCompilerVersion.VERSION))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:$coroutinesVersion")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
-                implementation("org.kodein.di:kodein-di-jvm:$kodeinVersion")
-                implementation("io.ktor:ktor-client-core-jvm:$ktorVersion")
-                implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
-                implementation("io.ktor:ktor-client-json-jvm:$ktorVersion")
-                implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion")
+                implementation(Libs.kotlinxCoroutinesCoreJvm)
+                implementation(Libs.kotlinxSerializationJson)
+                implementation(Libs.kodeinJvm)
+                implementation(Libs.ktorClientCoreJvm)
+                implementation(Libs.ktorClientOkhttp)
+                implementation(Libs.ktorClientJsonJvm)
+                implementation(Libs.ktorClientSerializationJvm)
             }
         }
         val androidMain by getting {

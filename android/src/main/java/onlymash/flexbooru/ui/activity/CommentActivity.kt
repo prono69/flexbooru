@@ -34,6 +34,7 @@ import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import onlymash.flexbooru.R
 import onlymash.flexbooru.app.Settings.activatedBooruUid
 import onlymash.flexbooru.app.Settings.pageLimit
@@ -48,7 +49,6 @@ import onlymash.flexbooru.data.database.BooruManager
 import onlymash.flexbooru.data.repository.comment.CommentRepositoryImpl
 import onlymash.flexbooru.databinding.ActivityCommentBinding
 import onlymash.flexbooru.extension.NetResult
-import onlymash.flexbooru.glide.GlideApp
 import onlymash.flexbooru.ui.adapter.CommentAdapter
 import onlymash.flexbooru.ui.adapter.StateAdapter
 import onlymash.flexbooru.ui.viewmodel.CommentViewModel
@@ -122,7 +122,6 @@ class CommentActivity : KodeinActivity() {
             }
         }
         commentAdapter = CommentAdapter(
-            glide = GlideApp.with(this),
             booru = action.booru,
             replyCallback = { postId ->
                 reply(postId)
@@ -168,7 +167,7 @@ class CommentActivity : KodeinActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
                 true
             }
             R.id.action_comment_reply -> {
@@ -186,7 +185,7 @@ class CommentActivity : KodeinActivity() {
 
     private fun initViewModel() {
         commentViewModel = getCommentViewModel(CommentRepositoryImpl(booruApis))
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             commentViewModel.comments.collectLatest {
                 commentAdapter.submitData(it)
             }

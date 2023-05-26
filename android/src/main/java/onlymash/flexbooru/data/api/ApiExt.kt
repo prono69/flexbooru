@@ -18,22 +18,27 @@ package onlymash.flexbooru.data.api
 import android.util.Log
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
+import nl.adaptivity.xmlutil.serialization.DefaultXmlSerializationPolicy
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import onlymash.flexbooru.BuildConfig
+import onlymash.flexbooru.app.App
 import onlymash.flexbooru.app.Settings
 import onlymash.flexbooru.app.Values
+import onlymash.flexbooru.okhttp.AndroidCookieJar
+import onlymash.flexbooru.okhttp.CloudflareInterceptor
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 fun createHttpClient(isSankaku: Boolean): OkHttpClient {
     val builder = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .cookieJar(AndroidCookieJar)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
 
     if (Settings.isDohEnable) {
         builder.dns(Settings.doh)
@@ -43,6 +48,10 @@ fun createHttpClient(isSankaku: Boolean): OkHttpClient {
         builder.addInterceptor(ApiSankakuInterceptor())
     } else {
         builder.addInterceptor(ApiInterceptor())
+    }
+
+    if (Settings.isBypassWAF) {
+        builder.addInterceptor(CloudflareInterceptor(App.app))
     }
 
     if (BuildConfig.DEBUG) {
@@ -55,31 +64,38 @@ fun createHttpClient(isSankaku: Boolean): OkHttpClient {
     return builder.build()
 }
 
+val defaultJson get() = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+}
+
 inline fun <reified T> createApi(): T {
-    val classJava = T::class.java
+    val classJava = T::class
     val baseUrl = when (classJava) {
-        AppUpdaterApi::class.java -> "https://raw.githubusercontent.com"
-        OrderApi::class.java -> "https://flexbooru-pay.fiepi.com"
+        AppUpdaterApi::class -> "https://raw.githubusercontent.com"
+        OrderApi::class -> "https://flexbooru-pay.fiepi.com"
         else -> Values.BASE_URL
     }
     val converterFactory = when (classJava) {
-        GelbooruApi::class.java,
-        ShimmieApi::class.java-> {
-            XML(config = XmlConfig.Builder(unknownChildHandler = { _, _, _, _ -> }))
-                .asConverterFactory("application/xml".toMediaType())
+        GelbooruApi::class,
+        ShimmieApi::class-> {
+            XML {
+                policy = DefaultXmlSerializationPolicy(
+                    pedantic = false,
+                    autoPolymorphic = true,
+                    unknownChildHandler = XmlConfig.IGNORING_UNKNOWN_CHILD_HANDLER
+                )
+            }.asConverterFactory("application/xml".toMediaType())
         }
         else -> {
-            Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            }.asConverterFactory("application/json".toMediaType())
+            defaultJson.asConverterFactory("application/json".toMediaType())
         }
     }
-    val isSankaku = classJava == SankakuApi::class.java
+    val isSankaku = classJava == SankakuApi::class
     return Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(createHttpClient(isSankaku))
         .addConverterFactory(converterFactory)
         .build()
-        .create(classJava)
+        .create(classJava.java)
 }

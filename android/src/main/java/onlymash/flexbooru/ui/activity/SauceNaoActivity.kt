@@ -27,7 +27,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import coil.load
 import com.dekoservidoni.omfm.OneMoreFabMenu
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +40,6 @@ import onlymash.flexbooru.databinding.ActivitySauceNaoBinding
 import onlymash.flexbooru.databinding.ItemSauceNaoBinding
 import onlymash.flexbooru.common.di.diCommon
 import onlymash.flexbooru.extension.*
-import onlymash.flexbooru.glide.GlideApp
 import onlymash.flexbooru.common.saucenao.api.SauceNaoApi
 import onlymash.flexbooru.common.saucenao.model.Result
 import onlymash.flexbooru.common.saucenao.model.SauceNaoResponse
@@ -96,25 +95,28 @@ class SauceNaoActivity : BaseActivity() {
             adapter = sauceNaoAdapter
         }
         sauceNaoViewModel = getSauceNaoViewModel(api)
-        sauceNaoViewModel.data.observe(this, {
+        sauceNaoViewModel.data.observe(this) {
             response = it
-            supportActionBar?.subtitle = String.format(getString(R.string.sauce_nao_remaining_times_today), it.header.longRemaining)
+            supportActionBar?.subtitle = String.format(
+                getString(R.string.sauce_nao_remaining_times_today),
+                it.header.longRemaining
+            )
             sauceNaoAdapter.notifyDataSetChanged()
-        })
-        sauceNaoViewModel.isLoading.observe(this, {
+        }
+        sauceNaoViewModel.isLoading.observe(this) {
             progressBar.isVisible = it
             if (it && errorMsg.isVisible) {
                 errorMsg.isVisible = false
             }
-        })
-        sauceNaoViewModel.error.observe(this, {
+        }
+        sauceNaoViewModel.error.observe(this) {
             if (!it.isNullOrBlank()) {
                 errorMsg.isVisible = true
                 errorMsg.text = it
             } else {
                 errorMsg.isVisible = false
             }
-        })
+        }
         val url = intent?.getStringExtra(SAUCE_NAO_SEARCH_URL_KEY)
         if (!url.isNullOrEmpty()) {
             search(url)
@@ -150,7 +152,7 @@ class SauceNaoActivity : BaseActivity() {
                 true
             }
             android.R.id.home -> {
-                onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -196,14 +198,6 @@ class SauceNaoActivity : BaseActivity() {
 
     private fun searchByFile() {
         openFileObserver.openDocument("image/*")
-    }
-
-    override fun onBackPressed() {
-        if (fab.isExpanded()) {
-            fab.collapse()
-        } else {
-            super.onBackPressed()
-        }
     }
 
     private fun search(imageUri: Uri) {
@@ -335,10 +329,7 @@ class SauceNaoActivity : BaseActivity() {
                         info2.text = String.format("Jp name: %s", result.data.jpName ?: "")
                     }
                 }
-                GlideApp.with(itemView.context)
-                    .load(result.header.thumbnail)
-                    .transition(DrawableTransitionOptions.withCrossFade())
-                    .into(thumbnail)
+                thumbnail.load(result.header.thumbnail)
                 urls = result.data.extUrls?.toTypedArray()
             }
         }

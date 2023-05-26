@@ -38,7 +38,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import onlymash.flexbooru.R
-import onlymash.flexbooru.app.Settings
 import onlymash.flexbooru.app.Settings.activatedBooruUid
 import onlymash.flexbooru.app.Settings.isOrderSuccess
 import onlymash.flexbooru.app.Values
@@ -140,7 +139,7 @@ class BooruActivity : KodeinActivity() {
         if (intent != null) {
             handleShareIntent(intent)
         }
-        if (!Settings.isOrderSuccess) {
+        if (!isOrderSuccess) {
             val adView = AdView(this)
             binding.container.addView(adView, 0, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -151,7 +150,7 @@ class BooruActivity : KodeinActivity() {
             }
             adView.apply {
                 visibility = View.VISIBLE
-                adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this@BooruActivity, adWidth)
+                setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this@BooruActivity, adWidth))
                 adUnitId = "ca-app-pub-1547571472841615/5647147698"
                 loadAd(AdRequest.Builder().build())
             }
@@ -200,7 +199,7 @@ class BooruActivity : KodeinActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
                 true
             }
             R.id.action_booru_add_qr -> {

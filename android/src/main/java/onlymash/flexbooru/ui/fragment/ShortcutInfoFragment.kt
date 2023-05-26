@@ -25,6 +25,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import coil.load
 import onlymash.flexbooru.R
 import onlymash.flexbooru.app.Keys
 import onlymash.flexbooru.app.Values
@@ -34,7 +35,6 @@ import onlymash.flexbooru.databinding.FragmentShortcutInfoBinding
 import onlymash.flexbooru.extension.copyText
 import onlymash.flexbooru.extension.formatDate
 import onlymash.flexbooru.extension.launchUrl
-import onlymash.flexbooru.glide.GlideApp
 import onlymash.flexbooru.ui.activity.AccountActivity
 import onlymash.flexbooru.ui.base.PathActivity
 import onlymash.flexbooru.ui.base.ShortcutFragment
@@ -123,24 +123,27 @@ class ShortcutInfoFragment : ShortcutFragment<FragmentShortcutInfoBinding>() {
             }
         }
         if (booru.type == Values.BOORU_TYPE_MOE && post.uploader.id > 0) {
-            GlideApp.with(this)
-                .load(String.format(getString(R.string.account_user_avatars), booru.scheme, booru.host, post.uploader.id))
-                .placeholder(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
-                .into(binding.userAvatar)
+            binding.userAvatar.load(String.format(getString(R.string.account_user_avatars), booru.scheme, booru.host, post.uploader.id)) {
+                placeholder(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
+                error(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
+            }
         } else if (booru.type == Values.BOORU_TYPE_SANKAKU && !post.uploader.avatar.isNullOrBlank()) {
-            GlideApp.with(this)
-                .load(post.uploader.avatar)
-                .placeholder(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
-                .into(binding.userAvatar)
+            binding.userAvatar.load(post.uploader.avatar) {
+                placeholder(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
+                error(ContextCompat.getDrawable(requireContext(), R.drawable.avatar_account))
+            }
         }
         binding.rating.text = when (post.rating) {
-            "s" -> getString(R.string.browse_info_rating_safe)
+            "s" -> getString(sRatingNameRes)
             "q" -> getString(R.string.browse_info_rating_questionable)
+            "g" -> getString(R.string.browse_info_rating_general)
             else -> getString(R.string.browse_info_rating_explicit)
         }
         binding.score.text = post.score.toString()
         binding.createdDate.text = binding.root.context.formatDate(post.time)
     }
+
+    val sRatingNameRes: Int get() = if (booru.type == Values.BOORU_TYPE_DAN) R.string.browse_info_rating_sensitive else R.string.browse_info_rating_safe
 
     private fun getSize(width: Int, height: Int, size: Int): String {
         return "$width x $height ${Formatter.formatFileSize(context, size.toLong())}"

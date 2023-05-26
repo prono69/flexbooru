@@ -30,9 +30,8 @@ Click the icon below to translate this app.
 - [Retrofit:](https://github.com/square/retrofit) Type-safe HTTP client for Android and Java by Square.
 - [KotlinxSerializationConverter:](https://github.com/JakeWharton/retrofit2-kotlinx-serialization-converter) A Retrofit 2 Converter.Factory for Kotlin serialization.
 - [xmlutil:](https://github.com/pdvrieze/xmlutil) XML Serialization library for Kotlin.
-- [Glide:](https://github.com/bumptech/glide) An image loading and caching library for Android focused on smooth scrolling.
+- [Coil:](https://github.com/coil-kt/coil) Image loading for Android backed by Kotlin Coroutines.
 - [MaterialDrawer:](https://github.com/mikepenz/MaterialDrawer) A drawer with material 2 design.
-- [SimpleMenuPreference:](https://github.com/takisoft/preferencex-android) A preference displaying a simple menu, originally implemented by RikkaW. On pre-Lollipop devices it falls back to a ListPreference as the older devices can't handle elevation and animation properly introduced in API 21.
 - [FlexboxLayout:](https://github.com/google/flexbox-layout) A library project which brings the similar capabilities of CSS Flexible Box Layout Module to Android.
 - [PhotoView:](https://github.com/chrisbanes/PhotoView) Implementation of ImageView for Android that supports zooming, by various touch gestures.
 - [SubsamplingScaleImageView:](https://github.com/davemorrissey/subsampling-scale-image-view) Highly configurable, easily extendable deep zoom view for displaying huge images without loss of detail. Perfect for photo galleries, maps, building plans etc.

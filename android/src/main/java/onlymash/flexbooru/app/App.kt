@@ -22,15 +22,22 @@ import android.os.Build
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.dispose
+import coil.load
+import coil.size.Scale
 import com.android.billingclient.api.*
-import com.bumptech.glide.Glide
 import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.material.color.DynamicColors
 import com.mikepenz.materialdrawer.util.AbstractDrawerImageLoader
 import com.mikepenz.materialdrawer.util.DrawerImageLoader
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import onlymash.flexbooru.BuildConfig
 import onlymash.flexbooru.R
 import onlymash.flexbooru.app.Settings.isGoogleSign
@@ -40,15 +47,19 @@ import onlymash.flexbooru.app.Settings.orderDeviceId
 import onlymash.flexbooru.app.Settings.orderId
 import onlymash.flexbooru.data.api.OrderApi
 import onlymash.flexbooru.extension.getSignMd5
-import onlymash.flexbooru.glide.GlideApp
+import onlymash.flexbooru.okhttp.AndroidCookieJar
+import onlymash.flexbooru.okhttp.CloudflareInterceptor
+import onlymash.flexbooru.okhttp.ProgressInterceptor
+import onlymash.flexbooru.okhttp.RequestHeaderInterceptor
 import onlymash.flexbooru.ui.activity.PurchaseActivity
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 
-class App : Application(), DIAware {
+class App : Application(), DIAware, ImageLoaderFactory {
 
     companion object {
         lateinit var app: App
+        private const val CACHE_MAX_PERCENT = 0.2
     }
 
     override val di by DI.lazy {
@@ -57,14 +68,13 @@ class App : Application(), DIAware {
 
     private val drawerImageLoader = object : AbstractDrawerImageLoader() {
         override fun set(imageView: ImageView, uri: Uri, placeholder: Drawable, tag: String?) {
-            GlideApp.with(imageView.context)
-                .load(uri)
-                .centerCrop()
-                .placeholder(ContextCompat.getDrawable(imageView.context, R.drawable.avatar_account))
-                .into(imageView)
+            imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+            imageView.load(uri) {
+                placeholder(ContextCompat.getDrawable(imageView.context, R.drawable.avatar_account))
+            }
         }
         override fun cancel(imageView: ImageView) {
-            Glide.with(imageView.context).clear(imageView)
+            imageView.dispose()
         }
     }
 
@@ -80,7 +90,7 @@ class App : Application(), DIAware {
         }
         AppCompatDelegate.setDefaultNightMode(nightMode)
         DrawerImageLoader.init(drawerImageLoader)
-        if (!Settings.isOrderSuccess) {
+        if (!isOrderSuccess) {
             MobileAds.initialize(this) {}
             MobileAds.setRequestConfiguration(RequestConfiguration.Builder()
                 .setTestDeviceIds(listOf("65DC68D21E774E5B6CAF511768A3E2D2")).build())
@@ -96,7 +106,7 @@ class App : Application(), DIAware {
         isGoogleSign = isPlayVersion
         if (isPlayVersion) {
             val time = System.currentTimeMillis()
-            if (!Settings.isOrderSuccess || time - Settings.orderTime > 7*24*60*60*1000) {
+            if (!isOrderSuccess || time - Settings.orderTime > 7*24*60*60*1000) {
                 Settings.orderTime = time
                 checkOrderFromCache()
             }
@@ -121,32 +131,80 @@ class App : Application(), DIAware {
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode ==  BillingClient.BillingResponseCode.OK) {
-                    val queryPurchasesParams = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
-                    billingClient.queryPurchasesAsync(queryPurchasesParams) { _, purchases ->
-                        isOrderSuccess = if (purchases.isEmpty()) {
-                            false
-                        } else {
-                            val index = purchases.indexOfFirst {
-                                it.products[0] == PurchaseActivity.SKU && it.purchaseState == Purchase.PurchaseState.PURCHASED
-                            }
-                            if (index >= 0) {
-                                val purchase = purchases[index]
-                                if (!purchase.isAcknowledged) {
-                                    val ackParams = AcknowledgePurchaseParams.newBuilder()
-                                        .setPurchaseToken(purchase.purchaseToken)
-                                        .build()
-                                    billingClient.acknowledgePurchase(ackParams){}
-                                }
-                                true
-                            } else false
-                        }
-                    }
-                    billingClient.endConnection()
+                    queryPurchases(billingClient)
                 }
             }
             override fun onBillingServiceDisconnected() {
                 billingClient.endConnection()
             }
         })
+    }
+
+    private fun queryPurchases(billingClient: BillingClient) {
+        val queryPurchasesParams = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build()
+        billingClient.queryPurchasesAsync(queryPurchasesParams) { _, purchases ->
+            val success = if (purchases.isEmpty()) {
+                false
+            } else {
+                val index = purchases.indexOfFirst {
+                    it.products[0] == PurchaseActivity.SKU && it.purchaseState == Purchase.PurchaseState.PURCHASED
+                }
+                if (index >= 0) {
+                    val purchase = purchases[index]
+                    if (!purchase.isAcknowledged) {
+                        val ackParams = AcknowledgePurchaseParams.newBuilder()
+                            .setPurchaseToken(purchase.purchaseToken)
+                            .build()
+                        billingClient.acknowledgePurchase(ackParams){}
+                    }
+                    true
+                } else false
+            }
+            if (success) {
+                isOrderSuccess = true
+            } else {
+                queryPurchasesHistory(billingClient)
+            }
+        }
+    }
+
+    private fun queryPurchasesHistory(billingClient: BillingClient) {
+        MainScope().launch {
+            val queryPurchaseHistoryParams = QueryPurchaseHistoryParams.newBuilder()
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+            val result = billingClient.queryPurchaseHistory(queryPurchaseHistoryParams)
+            isOrderSuccess = if (result.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                !result.purchaseHistoryRecordList.isNullOrEmpty()
+            } else {
+                false
+            }
+        }
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        val builder = OkHttpClient.Builder()
+            .cookieJar(AndroidCookieJar)
+            .addNetworkInterceptor(RequestHeaderInterceptor())
+            .addInterceptor(ProgressInterceptor())
+        if (Settings.isBypassWAF) {
+            builder.addInterceptor(CloudflareInterceptor(this))
+        }
+        if (Settings.isDohEnable) {
+            builder.dns(Settings.doh)
+        }
+        return ImageLoader.Builder(this)
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizePercent(CACHE_MAX_PERCENT)
+                    .build()
+            }
+            .allowHardware(false)
+            .okHttpClient(builder.build())
+            .crossfade(true)
+            .build()
     }
 }

@@ -86,7 +86,6 @@ import onlymash.flexbooru.data.repository.tagfilter.TagFilterRepositoryImpl
 import onlymash.flexbooru.extension.asMergedLoadStates
 import onlymash.flexbooru.extension.getScreenWidthPixels
 import onlymash.flexbooru.extension.rotate
-import onlymash.flexbooru.glide.GlideApp
 import onlymash.flexbooru.ui.activity.DetailActivity
 import onlymash.flexbooru.ui.activity.SauceNaoActivity
 import onlymash.flexbooru.ui.activity.SearchActivity
@@ -182,9 +181,7 @@ class PostFragment : SearchBarFragment() {
     }
 
     private fun initPostsList() {
-        val glide = GlideApp.with(this)
         postAdapter = PostAdapter(
-            glide = glide,
             clickItemCallback = { view, position, tranName ->
                 activity?.let {
                     sharedElement = view
@@ -203,12 +200,12 @@ class PostFragment : SearchBarFragment() {
             progressBarHorizontal.isVisible = loadStates.mediator?.append is LoadState.Loading
             updateState(loadStates.mediator?.refresh)
         }
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             postViewModel.posts.collectLatest {
                 postAdapter.submitData(it)
             }
         }
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             postAdapter.loadStateFlow
                 .asMergedLoadStates()
                 .distinctUntilChangedBy { it.refresh }
@@ -267,7 +264,7 @@ class PostFragment : SearchBarFragment() {
             updateTagsFilterBooru(booru.uid, booru.type)
         } else {
             action = null
-            tagFilterAdapter.updateBooru(-1L, BOORU_TYPE_UNKNOWN, arrayOf(), arrayOf())
+            tagFilterAdapter.updateBooru(-1L, BOORU_TYPE_UNKNOWN, arrayOf(), arrayOf(), arrayOf())
         }
     }
 
@@ -276,9 +273,7 @@ class PostFragment : SearchBarFragment() {
     }
 
     private fun initFilterList() {
-        val ratings = resources.getStringArray(R.array.filter_rating)
         tagFilterAdapter = TagFilterAdapter(
-            ratings = ratings,
             deleteTagCallback = { deleteTagFilter(it) },
             addSearchBarTextCallback = { createTagFilter() }
         )
@@ -302,17 +297,21 @@ class PostFragment : SearchBarFragment() {
     }
 
     private fun updateTagsFilterBooru(booruUid: Long, booruType: Int) {
+        val ratingsRes = if (booruType == BOORU_TYPE_DAN) R.array.filter_rating_danbooru else R.array.filter_rating
+        val ratings = resources.getStringArray(ratingsRes)
         val orders = resources.getStringArray(when(booruType) {
             BOORU_TYPE_DAN -> R.array.filter_order_danbooru
             BOORU_TYPE_SANKAKU -> R.array.filter_order_sankaku
             else -> R.array.filter_order
         })
-        val thresholds = if (booruType == BOORU_TYPE_SANKAKU) {
-            resources.getStringArray(R.array.filter_threshold)
-        } else {
-            arrayOf()
-        }
-        tagFilterAdapter.updateBooru(booruUid, booruType, orders, thresholds)
+        val thresholds = if (booruType == BOORU_TYPE_SANKAKU) resources.getStringArray(R.array.filter_threshold) else arrayOf()
+        tagFilterAdapter.updateBooru(
+            booruUid = booruUid,
+            booruType = booruType,
+            ratings = ratings,
+            orders = orders,
+            thresholds = thresholds
+        )
     }
 
     private fun createTagFilter() {
@@ -484,18 +483,6 @@ class PostFragment : SearchBarFragment() {
             oldState == SearchBar.STATE_SEARCH && newState == SearchBar.STATE_NORMAL -> {
 
             }
-        }
-    }
-
-    override fun onBackPressed(): Boolean {
-        if(!isViewCreated) {
-            return true
-        }
-        return if (currentState == SearchBar.STATE_EXPAND) {
-            toNormalState()
-            false
-        } else {
-            true
         }
     }
 

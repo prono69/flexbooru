@@ -25,10 +25,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 import onlymash.flexbooru.R
 import onlymash.flexbooru.app.Settings.pageLimit
 import onlymash.flexbooru.app.Values.Tags
@@ -74,10 +74,10 @@ class TagFragment : SearchBarFragment() {
         setSearchBarTitle(getString(R.string.title_tags))
         tagAdapter = TagAdapter()
         mainList.apply {
-            layoutManager = LinearLayoutManager(this@TagFragment.context, RecyclerView.VERTICAL, false)
+            layoutManager = LinearLayoutManager(this@TagFragment.requireContext(), RecyclerView.VERTICAL, false)
             adapter = tagAdapter.withLoadStateFooter(StateAdapter(tagAdapter))
         }
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             tagViewModel.tags.collectLatest {
                 tagAdapter.submitData(it)
             }
@@ -87,7 +87,7 @@ class TagFragment : SearchBarFragment() {
             progressBarHorizontal.isVisible = loadStates.source.append is LoadState.Loading
             updateState(loadStates.source.refresh)
         }
-        lifecycleScope.launchWhenCreated {
+        lifecycleScope.launch {
             tagAdapter.loadStateFlow
                 .asMergedLoadStates()
                 .distinctUntilChangedBy { it.refresh }

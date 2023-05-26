@@ -36,6 +36,9 @@ import androidx.core.view.*
 import androidx.lifecycle.lifecycleScope
 import androidx.paging.LoadState
 import androidx.viewpager2.widget.ViewPager2
+import coil.executeBlocking
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -71,7 +74,6 @@ import onlymash.flexbooru.data.repository.favorite.VoteRepositoryImpl
 import onlymash.flexbooru.databinding.ActivityDetailBinding
 import onlymash.flexbooru.exoplayer.PlayerHolder
 import onlymash.flexbooru.extension.*
-import onlymash.flexbooru.glide.GlideApp
 import onlymash.flexbooru.ui.adapter.DetailAdapter
 import onlymash.flexbooru.ui.base.PathActivity
 import onlymash.flexbooru.ui.fragment.InfoDialog
@@ -262,9 +264,7 @@ class DetailActivity : PathActivity(),
         if (detailViewModel.currentPosition < 0) {
             detailViewModel.currentPosition = intent?.getIntExtra(POST_POSITION, -1) ?: -1
         }
-        val glide = GlideApp.with(this)
         detailAdapter = DetailAdapter(
-            glide = glide,
             dismissListener = this,
             ioExecutor = Dispatchers.IO.asExecutor(),
             clickCallback = { setupBarVisable() },
@@ -345,7 +345,7 @@ class DetailActivity : PathActivity(),
             }
             adView.apply {
                 visibility = View.VISIBLE
-                adSize = AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this@DetailActivity, adWidth)
+                setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this@DetailActivity, adWidth))
                 adUnitId = "ca-app-pub-1547571472841615/1729907816"
                 loadAd(AdRequest.Builder().build())
             }
@@ -563,11 +563,13 @@ class DetailActivity : PathActivity(),
     private suspend fun loadFile(url: String): File? =
         withContext(Dispatchers.IO) {
             try {
-                GlideApp.with(this@DetailActivity)
-                    .downloadOnly()
-                    .load(url)
-                    .submit()
-                    .get()
+                val request = ImageRequest.Builder(this@DetailActivity)
+                    .data(url)
+                    .memoryCacheKey(url)
+                    .diskCacheKey(url)
+                    .build()
+                imageLoader.executeBlocking(request)
+                imageLoader.diskCache?.get(url)?.data?.toFile()
             } catch (_: Exception) {
                 null
             }

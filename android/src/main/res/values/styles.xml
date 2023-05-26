@@ -17,6 +17,7 @@
 
     <style name="ActionBarStyle" parent="Widget.Material3.ActionBar.Solid">
         <item name="background">@color/colorBackground</item>
+        <item name="elevation">0dp</item>
     </style>
 
     <style name="ActionBarStyle.Black">
@@ -65,10 +66,15 @@
 
     <style name="PreferenceTheme" parent="PreferenceThemeOverlay">
         <item name="preferenceStyle">@style/PreferenceStyle</item>
+        <item name="switchPreferenceCompatStyle">@style/SwitchPreferenceCompatStyle</item>
     </style>
 
     <style name="PreferenceStyle" parent="Preference.Material">
         <item name="iconSpaceReserved">true</item>
+    </style>
+
+    <style name="SwitchPreferenceCompatStyle" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:widgetLayout">@layout/preference_material_switch</item>
     </style>
 
     <style name="PopupOverlay" parent="ThemeOverlay.Material3.Light"/>
@@ -115,7 +121,6 @@
     </style>
 
     <style name="Widget.Account.FloatingActionButton" parent="@style/Widget.FloatingActionButton">
-        <item name="backgroundTint">@color/background_tint_account_action</item>
         <item name="android:padding">5dp</item>
     </style>
 
@@ -158,4 +163,9 @@
     <style name="TextAppearance.FilterChip.Selectable" parent="TextAppearance.Material3.BodyMedium"/>
 
     <style name="MaterialCalendarTheme" parent="ThemeOverlay.Material3.MaterialCalendar"/>
+
+    <style name="CircleShapeImageViewStyle">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
 </resources>
