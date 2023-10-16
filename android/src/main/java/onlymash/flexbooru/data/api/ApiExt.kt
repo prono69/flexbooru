@@ -18,7 +18,6 @@ package onlymash.flexbooru.data.api
 import android.util.Log
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
-import nl.adaptivity.xmlutil.serialization.DefaultXmlSerializationPolicy
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlConfig
 import okhttp3.MediaType.Companion.toMediaType
@@ -33,7 +32,7 @@ import onlymash.flexbooru.okhttp.CloudflareInterceptor
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
-fun createHttpClient(isSankaku: Boolean): OkHttpClient {
+fun createHttpClient(isSankaku: Boolean, isGelbooru: Boolean): OkHttpClient {
     val builder = OkHttpClient.Builder()
         .cookieJar(AndroidCookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -48,6 +47,11 @@ fun createHttpClient(isSankaku: Boolean): OkHttpClient {
         builder.addInterceptor(ApiSankakuInterceptor())
     } else {
         builder.addInterceptor(ApiInterceptor())
+    }
+
+    if (isGelbooru) {
+        // Gelbooru will return some 302. Do not waste bandwidth to follow it
+        builder.followRedirects(false)
     }
 
     if (Settings.isBypassWAF) {
@@ -80,11 +84,11 @@ inline fun <reified T> createApi(): T {
         GelbooruApi::class,
         ShimmieApi::class-> {
             XML {
-                policy = DefaultXmlSerializationPolicy(
-                    pedantic = false,
-                    autoPolymorphic = true,
+                defaultPolicy {
+                    pedantic = false
+                    autoPolymorphic = true
                     unknownChildHandler = XmlConfig.IGNORING_UNKNOWN_CHILD_HANDLER
-                )
+                }
             }.asConverterFactory("application/xml".toMediaType())
         }
         else -> {
@@ -92,9 +96,10 @@ inline fun <reified T> createApi(): T {
         }
     }
     val isSankaku = classJava == SankakuApi::class
+    val isGelbooru = classJava == GelbooruApi::class
     return Retrofit.Builder()
         .baseUrl(baseUrl)
-        .client(createHttpClient(isSankaku))
+        .client(createHttpClient(isSankaku, isGelbooru))
         .addConverterFactory(converterFactory)
         .build()
         .create(classJava.java)

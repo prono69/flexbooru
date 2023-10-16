@@ -34,12 +34,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.view.*
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.ui.PlayerView
 import androidx.paging.LoadState
 import androidx.viewpager2.widget.ViewPager2
 import coil.executeBlocking
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
@@ -48,6 +48,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import onlymash.flexbooru.BuildConfig
 import onlymash.flexbooru.R
 import onlymash.flexbooru.app.Keys.POST_POSITION
 import onlymash.flexbooru.app.Keys.POST_QUERY
@@ -72,7 +73,7 @@ import onlymash.flexbooru.data.model.common.Post
 import onlymash.flexbooru.data.repository.favorite.VoteRepository
 import onlymash.flexbooru.data.repository.favorite.VoteRepositoryImpl
 import onlymash.flexbooru.databinding.ActivityDetailBinding
-import onlymash.flexbooru.exoplayer.PlayerHolder
+import onlymash.flexbooru.player.PlayerHolder
 import onlymash.flexbooru.extension.*
 import onlymash.flexbooru.ui.adapter.DetailAdapter
 import onlymash.flexbooru.ui.base.PathActivity
@@ -83,7 +84,7 @@ import onlymash.flexbooru.ui.viewmodel.DetailViewModel
 import onlymash.flexbooru.ui.viewmodel.getDetailViewModel
 import onlymash.flexbooru.widget.DismissFrameLayout
 import onlymash.flexbooru.worker.DownloadWorker
-import org.kodein.di.instance
+import org.koin.android.ext.android.inject
 import java.io.*
 
 private const val ALPHA_MAX = 0xFF
@@ -118,8 +119,8 @@ class DetailActivity : PathActivity(),
         }
     }
 
-    private val postDao by instance<PostDao>()
-    private val booruApis by instance<BooruApis>()
+    private val postDao by inject<PostDao>()
+    private val booruApis by inject<BooruApis>()
     private val voteRepository: VoteRepository by lazy { VoteRepositoryImpl(booruApis, postDao) }
 
     private val binding by viewBinding(ActivityDetailBinding::inflate)
@@ -148,9 +149,9 @@ class DetailActivity : PathActivity(),
     private val currentPost: Post?
         get() = detailAdapter.getPost(detailPager.currentItem)
 
-    private var oldPlayerView: StyledPlayerView? = null
+    private var oldPlayerView: PlayerView? = null
 
-    private val playerView: StyledPlayerView?
+    private val playerView: PlayerView?
         get() = detailPager.findViewWithTag(String.format("player_%d", detailPager.currentItem))
 
     private val pageChangeCallback = object : ViewPager2.OnPageChangeCallback() {
@@ -177,6 +178,7 @@ class DetailActivity : PathActivity(),
         val intent = Intent(ACTION_DETAIL_POST_POSITION).apply {
             putExtra(POST_QUERY, post.query)
             putExtra(POST_POSITION, position)
+            setPackage(BuildConfig.APPLICATION_ID)
         }
         sendBroadcast(intent)
         if (post.origin.isVideo()) {
@@ -322,9 +324,7 @@ class DetailActivity : PathActivity(),
         TooltipCompat.setTooltipText(saveButton, saveButton.contentDescription)
         infoButton.setOnClickListener { createInfoDialog() }
         downloadButton.setOnClickListener {
-            currentPost?.let {
-                download(it)
-            }
+            currentPost?.let(this::download)
         }
         saveButton.setOnClickListener {
             currentPost?.let {
@@ -429,7 +429,11 @@ class DetailActivity : PathActivity(),
     }
 
     private fun download(post: Post) {
-        DownloadWorker.downloadPost(post, booru.host, this)
+        if (post.origin.isVideo()) {
+            downloadByAdm(post.origin)
+        } else {
+            DownloadWorker.downloadPost(post, booru.host, this)
+        }
     }
 
     private fun openBrowser(post: Post) {
@@ -569,7 +573,7 @@ class DetailActivity : PathActivity(),
                     .diskCacheKey(url)
                     .build()
                 imageLoader.executeBlocking(request)
-                imageLoader.diskCache?.get(url)?.data?.toFile()
+                imageLoader.diskCache?.openSnapshot(url)?.data?.toFile()
             } catch (_: Exception) {
                 null
             }
