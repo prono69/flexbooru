@@ -101,6 +101,7 @@ android {
             if (config != null) {
                 signingConfig = config
             }
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     compileOptions {
